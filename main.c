@@ -52,18 +52,22 @@ void *parent_func(void *str)
             setSleeperN(getSleeperN()-1);
             situation=1;
         }
-        /*if(situation==1){
+        if(situation==1){
         	int sleepers=getSleeperN();
         	for (int i = 0; i < sleepers; ++i)
         	{
-        		
+        		ant_struct[i].state = 's';
         	}
-        }*/
+        	for (int i = 0; i < sleepers; ++i)
+        	{
+        		pthread_cond_signal(unsleep+i);
+        	}
+        }
 
         usleep(DRAWDELAY);
         
         // each ant thread have to sleep with code similar to this
-        usleep(getDelay() * 1000 + (rand() % 5000));
+        //usleep(getDelay() * 1000 + (rand() % 5000));
         pthread_mutex_unlock(&grid_mutex);
     }
     
@@ -78,15 +82,19 @@ void *parent_func(void *str)
 void *ant_func(void *str)
 {
 	ant_st * const thread_struct = str;
-
+	int i=0;
 	int tid=thread_struct->id;
-	printf("\n thread: %d says hi\n",tid );
+	//printf("\n thread: %d says hi\n",tid );
 	while(TRUE){
 		pthread_mutex_lock(&grid_mutex);
 		if(thread_struct->state == 's')
 			pthread_cond_wait(unsleep+tid,&grid_mutex);
 		//usleep(10000);
-		//printf("\n thread: %d says hi\n",tid );
+		if(!i){
+			printf("\n thread: %d says hi\n",tid );
+			i++;
+		}
+		
 		pthread_mutex_unlock(&grid_mutex);
 	}
 
@@ -97,7 +105,14 @@ void *ant_func(void *str)
 
 int main(int argc, char *argv[]) {
     srand(time(NULL));
-    int num_threads=5;
+    int num_threads=atoi(argv[1]);
+    int num_foods=atoi(argv[2]);
+    int delay_count=atoi(argv[3]);
+
+
+    ant_struct=malloc(sizeof(ant_st)*num_threads);
+    
+    
     //////////////////////////////
     // Fills the grid randomly to have somthing to draw on screen.
     // Empty spaces have to be -.
@@ -112,41 +127,45 @@ int main(int argc, char *argv[]) {
         }
     }
     int a,b;
-    for (i = 0; i < 5; i++) {
+    /*for (i = 0; i < num_threads; i++) {
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b)!= '-');
         putCharTo(a, b, 'P');
-    }
-    for (i = 0; i < 5; i++) {
+    }*/
+    for (i = 0; i < num_threads; i++) {
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b) != '-');
         putCharTo(a, b, '1');
+        ant_struct[i].state='1';
+        ant_struct[i].grid_x=a;
+        ant_struct[i].grid_y=b;
+        ant_struct[i].id=i;
     }
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < num_foods; i++) {
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b) != '-');
         putCharTo(a, b, 'o');
     }
-    for (i = 0; i < 5; i++) {
+    /*for (i = 0; i < num_threads; i++) {
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b) != '-');
         putCharTo(a, b, 'S');
     }
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < num_threads; i++) {
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b) != '-');
         putCharTo(a, b, '$');
-    }
+    }*/
     //////////////////////////////
 
 
@@ -154,11 +173,6 @@ int main(int argc, char *argv[]) {
   	pthread_create(&fake_parent,NULL,parent_func,NULL);
   	//pthread_join(&fake_parent,NULL);
 
-    ant_struct=malloc(sizeof(ant_st)*num_threads);
-    for (i = 0; i < num_threads; ++i)
-    {
-    	ant_struct[i].id=i;
-    }
 
     pthread_t * threads = malloc(sizeof(pthread_t)*num_threads);
 
@@ -174,7 +188,6 @@ int main(int argc, char *argv[]) {
   	for (i = 0; i <num_threads ; ++i)
   	{
   		pthread_join(threads[i],NULL);
-
   	}
 
 
