@@ -4,22 +4,30 @@
 
 
 typedef struct{
-	char state;
 	int id;
 	int grid_x;
 	int grid_y;
+	char state;
+	char before; //the state before it sleeps
 } ant_st;
+
+typedef struct{
+	int num_threads;
+	int num_foods;
+	int delay_count;
+}parent_st;
 
 
 pthread_mutex_t grid_mutex;
 pthread_cond_t *unsleep;
 pthread_t * threads;
 ant_st *ant_struct;
+parent_st parent_struct;
 
 
 void *parent_func(void *str)
 {
-
+	parent_st * const parent_str = str;
     // you have to have following command to initialize ncurses.
     startCurses();
     
@@ -56,9 +64,10 @@ void *parent_func(void *str)
         	int sleepers=getSleeperN();
         	for (int i = 0; i < sleepers; ++i)
         	{
+        		ant_struct[i].before = ant_struct[i].state;
         		ant_struct[i].state = 's';
         	}
-        	for (int i = 0; i < sleepers; ++i)
+        	for (int i = sleepers; i < parent_str->num_threads; ++i)
         	{
         		pthread_cond_signal(unsleep+i);
         	}
@@ -87,8 +96,12 @@ void *ant_func(void *str)
 	//printf("\n thread: %d says hi\n",tid );
 	while(TRUE){
 		pthread_mutex_lock(&grid_mutex);
-		if(thread_struct->state == 's')
+		if(thread_struct->state == 's'){
 			pthread_cond_wait(unsleep+tid,&grid_mutex);
+			thread_struct->state = thread_struct->before; //turns back to the state before it sleept
+			putCharTo(thread_struct->grid_x,thread_struct->grid_y,thread_struct->state);
+		}
+		
 		//usleep(10000);
 		if(!i){
 			printf("\n thread: %d says hi\n",tid );
@@ -111,7 +124,9 @@ int main(int argc, char *argv[]) {
 
 
     ant_struct=malloc(sizeof(ant_st)*num_threads);
-    
+    parent_struct.num_threads = num_threads;
+    parent_struct.num_foods = num_foods;
+    parent_struct.delay_count = delay_count;
     
     //////////////////////////////
     // Fills the grid randomly to have somthing to draw on screen.
@@ -170,7 +185,7 @@ int main(int argc, char *argv[]) {
 
 
   	pthread_t fake_parent;
-  	pthread_create(&fake_parent,NULL,parent_func,NULL);
+  	pthread_create(&fake_parent,NULL,parent_func,&parent_struct);
   	//pthread_join(&fake_parent,NULL);
 
 
