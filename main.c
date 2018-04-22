@@ -16,6 +16,7 @@ typedef struct{
 
 pthread_mutex_t grid_mutex;
 pthread_mutex_t put_look;
+pthread_mutex_t delay_mutex;
 sem_t *states;
 pthread_cond_t *unsleep;
 pthread_t * threads;
@@ -31,7 +32,7 @@ void *ant_func(void *str)
 	//printf("\n thread: %d says hi\n",tid );
 	while(TRUE){
 		pthread_mutex_lock(&grid_mutex);
-		
+		//int delay=10;
 		ant_st * const thread_struct = str;
 		int k=0;
 		int tid=thread_struct->id;
@@ -132,7 +133,9 @@ void *ant_func(void *str)
 					}
 			}
 			//sem_post(states);
+			//delay = getDelay();
 			pthread_mutex_unlock(&put_look);
+
 		}
 		
 		
@@ -140,7 +143,9 @@ void *ant_func(void *str)
 		
 		
 		pthread_mutex_unlock(&grid_mutex);
-		usleep(100000);
+		pthread_mutex_lock(&delay_mutex);
+		usleep(getDelay()* 1000 + (rand() % 5000));
+		pthread_mutex_unlock(&delay_mutex);
 	}
 
 	return NULL;
@@ -149,6 +154,7 @@ void *ant_func(void *str)
 
 
 int main(int argc, char *argv[]) {
+	clock_t begin = clock();
     srand(time(NULL));
     int num_threads=atoi(argv[1]);
     int num_foods=atoi(argv[2]);
@@ -156,6 +162,7 @@ int main(int argc, char *argv[]) {
 
     pthread_mutex_init(&grid_mutex,NULL);
   	pthread_mutex_init(&put_look,NULL);
+  	pthread_mutex_init(&delay_mutex,NULL);
 
     ant_struct=malloc(sizeof(ant_st)*num_threads);
     //////////////////////////////
@@ -174,7 +181,7 @@ int main(int argc, char *argv[]) {
     int a,b;
 
     for (i = 0; i < num_threads; i++) {
-    	//pthread_mutex_lock(&put_look);
+    	
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
@@ -185,16 +192,16 @@ int main(int argc, char *argv[]) {
         ant_struct[i].grid_x=a;
         ant_struct[i].grid_y=b;
         ant_struct[i].id=i;
-        //pthread_mutex_unlock(&put_look);
+        
     } 
     for (i = 0; i < num_foods; i++) {
-    	//pthread_mutex_lock(&put_look);
+    	
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b) != '-');
         putCharTo(a, b, 'o');
-        //pthread_mutex_unlock(&put_look);
+        
     }
 
     //////////////////////////////
@@ -222,14 +229,16 @@ int main(int argc, char *argv[]) {
         c = getch();
 
         if (c == 'q' || c == ESC) break;
+        pthread_mutex_lock(&delay_mutex);
         if (c == '+') {
             setDelay(getDelay()+10);
-            situation=2;
+            //situation=2;
         }
         if (c == '-') {
             setDelay(getDelay()-10);
-            situation=2;
+            //situation=2;
         }
+        pthread_mutex_unlock(&delay_mutex);
         if (c == '*') {
             setSleeperN(getSleeperN()+1);
             situation=1;
@@ -245,50 +254,38 @@ int main(int argc, char *argv[]) {
         	char e;
         	for (int i = 0; i < sleepers && i<num_threads; ++i)
         	{
-        		/*e= ant_struct[i].state;
-        		usleep(10);
-        		ant_struct[i].before = ant_struct[i].state;
-        		usleep(100);*/
-        		/*sem_post(states+i);
-        		if(ant_struct[i].before=='S'){
-        			sem_wait(states+i);
-        			ant_struct[i].before = e;
-        		}*/
-        		//pthread_mutex_lock(&put_look);
         		if(ant_struct[i].state=='P')
         			putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'$');
         		else if(ant_struct[i].state=='1')
         			putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'S');
         		usleep(1);
         		ant_struct[i].state = 'S';
-
-        		//pthread_mutex_unlock(&put_look);
         		
         	}
         	
         	for (int i = sleepers; i < num_threads; ++i)
         	{
         		
-        		//ant_struct[i].state = ant_struct[i].before; //turns back to the state before it sleept
-				//putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,ant_struct[i].before);
-				//pthread_mutex_lock(&put_look);
 				pthread_cond_signal(unsleep+i);
-				//pthread_mutex_unlock(&put_look);
+				
 				usleep(1);
         	}
         	
         }
-        if (situation==2){
-        	int delay= getDelay();
-        	
-        }
         
-
+        
+		clock_t end = clock();
+        double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        //printf("time:::::::::: %f\n",time_spent );
+        if(time_spent>delay_count)
+        	break;
         usleep(DRAWDELAY);
-        //usleep(10);
+        
+        
         // each ant thread have to sleep with code similar to this
         //usleep(getDelay() * 1000 + (rand() % 5000));
         pthread_mutex_unlock(&grid_mutex);
+        
     }
     
     // do not forget freeing the resources you get
