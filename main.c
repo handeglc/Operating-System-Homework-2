@@ -19,6 +19,7 @@ typedef struct{
 
 
 pthread_mutex_t grid_mutex;
+pthread_mutex_t put_look;
 sem_t *states;
 pthread_cond_t *unsleep;
 pthread_t * threads;
@@ -69,7 +70,7 @@ void *parent_func(void *str)
         		
         		ant_struct[i].before = ant_struct[i].state;
         		
-        		ant_struct[i].state = 's';
+        		ant_struct[i].state = 'S';
         		putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'S');
         		
         	}
@@ -96,27 +97,80 @@ void *parent_func(void *str)
 
 void *ant_func(void *str)
 {
-	ant_st * const thread_struct = str;
-	int i=0;
-	int tid=thread_struct->id;
+	
 	//printf("\n thread: %d says hi\n",tid );
 	while(TRUE){
 		pthread_mutex_lock(&grid_mutex);
-		if(thread_struct->state == 's'){
+		ant_st * const thread_struct = str;
+		int k=0;
+		int tid=thread_struct->id;
+		if(thread_struct->state == 'S'){
 			printf("BURAYA BAKARLAR\n");
 			pthread_cond_wait(unsleep+tid,&grid_mutex);
 			printf("are you here????????????\n");
-			//thread_struct->state = thread_struct->before; //turns back to the state before it sleept
-			//putCharTo(thread_struct->grid_x,thread_struct->grid_y,thread_struct->state);
+			thread_struct->state = thread_struct->before; //turns back to the state before it sleept
+			putCharTo(thread_struct->grid_x,thread_struct->grid_y,thread_struct->state);
+		}
+		else{
+			//pthread_cond_wait(sleep+tid,&grid_mutex);
+			pthread_mutex_lock(&put_look);
+			thread_struct->before = thread_struct->state;
+			int x= thread_struct->grid_x;
+			int y= thread_struct->grid_y;
+			int av_x,av_y,fo_x,fo_y,a,b;
+			fo_x=-1; fo_y=-1;
+			//look for a food
+			
+			for (int i = x-1; i <= x+1; ++i)
+			{
+				for (int j = y-1; j <= y+1; ++j)
+				{
+					if(i>0 && i<30 && y>0 && y<30){
+
+						if(lookCharAt(i,j)=='o'){
+							fo_x=i;
+							fo_y=j;
+						}
+					}
+				}
+			}
+			//sem_wait(states);
+			if(thread_struct->state=='1'){
+				if(fo_x>-1 && fo_y>-1){
+					//usleep(10000);
+					putCharTo(x,y,'-');
+					putCharTo(fo_x,fo_y,'P');
+					thread_struct->state='P';
+					thread_struct->grid_x=fo_x;
+			        thread_struct->grid_y=fo_y;
+			        usleep(1);
+				}
+				else{
+					do {
+			            a = (rand() % 3)-1 +x;
+			            b = (rand() % 3)-1 +y;
+			            if(a>=0 && a<30 && b>=0 && b<30 && lookCharAt(a,b) == '-')
+			            	break;
+			        } while (true);
+			        //usleep(10000);
+			        putCharTo(x, y, '-');
+			        putCharTo(a, b, '1');
+			        thread_struct->grid_x=a;
+			        thread_struct->grid_y=b;
+				}
+			}
+			//sem_post(states);
+			pthread_mutex_unlock(&put_look);
 		}
 		
-		//usleep(10000);
-		if(!i){
-			printf("\n thread: %d says hi\n",tid );
-			i++;
+		
+		//usleep(100);
+		if(!k){
+			//printf("\n thread: %d says hi\n",tid );
+			k++;
 		}
 		pthread_mutex_unlock(&grid_mutex);
-		usleep(10);
+		usleep(500000);
 	}
 
 	return NULL;
@@ -130,12 +184,10 @@ int main(int argc, char *argv[]) {
     int num_foods=atoi(argv[2]);
     int delay_count=atoi(argv[3]);
 
+    pthread_mutex_init(&grid_mutex,NULL);
+  	pthread_mutex_init(&put_look,NULL);
 
     ant_struct=malloc(sizeof(ant_st)*num_threads);
-    parent_struct.num_threads = num_threads;
-    parent_struct.num_foods = num_foods;
-    parent_struct.delay_count = delay_count;
-    
     //////////////////////////////
     // Fills the grid randomly to have somthing to draw on screen.
     // Empty spaces have to be -.
@@ -150,14 +202,9 @@ int main(int argc, char *argv[]) {
         }
     }
     int a,b;
-    /*for (i = 0; i < num_threads; i++) {
-        do {
-            a = rand() % GRIDSIZE;
-            b = rand() % GRIDSIZE;
-        }while (lookCharAt(a,b)!= '-');
-        putCharTo(a, b, 'P');
-    }*/
+
     for (i = 0; i < num_threads; i++) {
+    	//pthread_mutex_lock(&put_look);
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
@@ -168,36 +215,21 @@ int main(int argc, char *argv[]) {
         ant_struct[i].grid_x=a;
         ant_struct[i].grid_y=b;
         ant_struct[i].id=i;
+        //pthread_mutex_unlock(&put_look);
     } 
     for (i = 0; i < num_foods; i++) {
+    	//pthread_mutex_lock(&put_look);
         do {
             a = rand() % GRIDSIZE;
             b = rand() % GRIDSIZE;
         }while (lookCharAt(a,b) != '-');
         putCharTo(a, b, 'o');
+        //pthread_mutex_unlock(&put_look);
     }
-    /*for (i = 0; i < num_threads; i++) {
-        do {
-            a = rand() % GRIDSIZE;
-            b = rand() % GRIDSIZE;
-        }while (lookCharAt(a,b) != '-');
-        putCharTo(a, b, 'S');
-    }
-    for (i = 0; i < num_threads; i++) {
-        do {
-            a = rand() % GRIDSIZE;
-            b = rand() % GRIDSIZE;
-        }while (lookCharAt(a,b) != '-');
-        putCharTo(a, b, '$');
-    }*/
+
     //////////////////////////////
     pthread_t * threads = malloc(sizeof(pthread_t)*num_threads);
 
-  	pthread_mutex_init(&grid_mutex,NULL);
-
-  	//pthread_t fake_parent;
-  	//pthread_create(&fake_parent,NULL,parent_func,&parent_struct);
-  	//pthread_join(&fake_parent,NULL);
 
   	running_threads=0;
     
@@ -211,16 +243,13 @@ int main(int argc, char *argv[]) {
   		pthread_create(threads+i,NULL,ant_func,ant_struct+i);
 
   	}
-  	/*for (i = 0; i <num_threads ; ++i)
-  	{
-  		pthread_join(threads[i],NULL);
-  	}*/
+
 
   	startCurses();
   	char c;
     int situation = 0;
     while (TRUE) {
-    	pthread_mutex_lock(&grid_mutex);
+    	
         drawWindow();
         
         c = 0;
@@ -243,33 +272,50 @@ int main(int argc, char *argv[]) {
             setSleeperN(getSleeperN()-1);
             situation=1;
         }
+        pthread_mutex_lock(&put_look);
+        pthread_mutex_lock(&grid_mutex);
         if(situation==1){
+        	
         	int sleepers=getSleeperN();
+        	char e;
         	for (int i = 0; i < sleepers; ++i)
         	{
-        		char e= ant_struct[i].state;
-        		ant_struct[i].before = e;
-        		sem_post(states+i);
-        		if(ant_struct[i].state=='s'){
+        		/*e= ant_struct[i].state;
+        		usleep(10);
+        		ant_struct[i].before = ant_struct[i].state;
+        		usleep(100);*/
+        		/*sem_post(states+i);
+        		if(ant_struct[i].before=='S'){
         			sem_wait(states+i);
-        			ant_struct[i].state = 's';
-        		}
-        		
+        			ant_struct[i].before = e;
+        		}*/
+        		ant_struct[i].state = 'S';
         		putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'S');
+        		usleep(10);
         	}
+        	
         	for (int i = sleepers; i < num_threads; ++i)
         	{
-        		pthread_cond_signal(unsleep+i);
-        		ant_struct[i].state = ant_struct[i].before; //turns back to the state before it sleept
-				putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,ant_struct[i].before);
+        		e =ant_struct[i].before;
+        		usleep(10);
+        		//ant_struct[i].state = ant_struct[i].before; //turns back to the state before it sleept
+				//putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,ant_struct[i].before);
+				pthread_cond_signal(unsleep+i);
         	}
+        	
         }
+        if (situation==2){
+        	int delay= getDelay();
+        	
+        }
+        
 
         usleep(DRAWDELAY);
         //usleep(10);
         // each ant thread have to sleep with code similar to this
         //usleep(getDelay() * 1000 + (rand() % 5000));
         pthread_mutex_unlock(&grid_mutex);
+        pthread_mutex_unlock(&put_look);
     }
     
     // do not forget freeing the resources you get
