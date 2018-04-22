@@ -90,8 +90,9 @@ void *ant_func(void *str)
 				}
 				else{
 			        //usleep(10000);
-			        putCharTo(x, y, '-');
+			        
 			        putCharTo(a, b, '1');
+			        putCharTo(x, y, '-');
 			        thread_struct->grid_x=a;
 			        thread_struct->grid_y=b;
 				}
@@ -110,9 +111,9 @@ void *ant_func(void *str)
 				}
 				else{ //if there is no food
 					if(av_x>-1 && av_y>-1){ //if there is an available place
-						putCharTo(x,y,'-');
+						
 						putCharTo(a,b,'P');
-
+						putCharTo(x,y,'-');
 				        thread_struct->grid_x=a;
 				        thread_struct->grid_y=b;
 					}
@@ -123,7 +124,7 @@ void *ant_func(void *str)
 			}
 			else if(thread_struct->state=='T'){
 				if(av_x>-1 && av_y>-1){ //if there is an available place
-						putCharTo(x,y,'-');
+						putCharTo(x,y,'-');	
 						putCharTo(a,b,'1');
 						thread_struct->state = '1';
 				        thread_struct->grid_x=a;
@@ -139,7 +140,7 @@ void *ant_func(void *str)
 		
 		
 		pthread_mutex_unlock(&grid_mutex);
-		usleep(500000);
+		usleep(100000);
 	}
 
 	return NULL;
@@ -254,10 +255,15 @@ int main(int argc, char *argv[]) {
         			ant_struct[i].before = e;
         		}*/
         		//pthread_mutex_lock(&put_look);
-        		ant_struct[i].state = 'S';
-        		putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'S');
-        		//pthread_mutex_unlock(&put_look);
+        		if(ant_struct[i].state=='P')
+        			putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'$');
+        		else if(ant_struct[i].state=='1')
+        			putCharTo(ant_struct[i].grid_x,ant_struct[i].grid_y,'S');
         		usleep(1);
+        		ant_struct[i].state = 'S';
+
+        		//pthread_mutex_unlock(&put_look);
+        		
         	}
         	
         	for (int i = sleepers; i < num_threads; ++i)
